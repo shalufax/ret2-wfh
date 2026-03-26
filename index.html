@@ -188,7 +188,7 @@ textarea.fc{resize:vertical;min-height:72px;}
 .ps-label{font-size:.62rem;color:var(--text-faint);margin-top:.25rem;}
 
 /* password toggle */
-.pw-wrap{position:relative;}
+.pw-wrap{position:relative;;display:flex;align-items:center;}
 .pw-wrap .fc{padding-right:2.5rem;}
 .pw-toggle{position:absolute;right:.75rem;top:50%;transform:translateY(-50%);cursor:pointer;font-size:.85rem;color:var(--text-faint);background:none;border:none;padding:0;line-height:1;}
 .pw-toggle:hover{color:var(--g1);}
@@ -1343,11 +1343,12 @@ function showRegErr(m){const e=document.getElementById('rerr');e.textContent='�
 
 // ── SHOW APP (after login) ────────────────────────────────────
 function showApp(){
-  // ซ่อนหน้า login
+  // ซ่อนหน้า login ทุกกรณี
   var lp = document.getElementById('lp');
-  if(lp) lp.style.display='none';
+  if(lp){ lp.style.display='none'; lp.style.visibility='hidden'; lp.style.opacity='0'; }
 
-  document.getElementById('app').style.display='block';
+  var app = document.getElementById('app');
+  if(app){ app.style.display='block'; app.style.visibility='visible'; app.style.opacity='1'; }
   document.getElementById('logoutBtn').style.display='';
   document.getElementById('uav').textContent=(CU.avatar&&CU.avatar.length===1)?CU.avatar:(CU.name||'U').charAt(0);
   document.getElementById('tbsub').textContent=CU.name;
