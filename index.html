@@ -3262,11 +3262,37 @@ function showPendingScreen(name, picture){
 
 function checkLineRedirect(){
   var params = new URLSearchParams(window.location.search);
-  var key = params.get('lrk') || params.get('line_key');
-  if(key){
+
+  // รับ LINE OAuth code โดยตรง (LINE redirect มาที่ GitHub Pages)
+  var code  = params.get('code');
+  var error = params.get('error');
+  var lrk   = params.get('lrk') || params.get('line_key');
+
+  if(error){
+    history.replaceState({}, '', window.location.pathname);
+    toast('❌','LINE Error: '+error,'err');
+    return;
+  }
+
+  if(code){
     history.replaceState({}, '', window.location.pathname);
     showLoading('กำลังยืนยันตัวตน...');
-    gas('getLineResult', key).then(function(r){
+    // ส่ง code ไปให้ GAS แลกเป็น token และ profile
+    gas('handleLineCode', code).then(function(r){
+      hideLoading();
+      var payload = (r && r.payload) ? r.payload : r;
+      processLineResult(payload);
+    }).catch(function(e){
+      hideLoading();
+      toast('❌', e.message, 'err');
+    });
+    return;
+  }
+
+  if(lrk){
+    history.replaceState({}, '', window.location.pathname);
+    showLoading('กำลังยืนยันตัวตน...');
+    gas('getLineResult', lrk).then(function(r){
       hideLoading();
       var payload = (r && r.payload) ? r.payload : r;
       processLineResult(payload);
