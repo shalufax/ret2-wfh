@@ -1343,6 +1343,10 @@ function showRegErr(m){const e=document.getElementById('rerr');e.textContent='�
 
 // ── SHOW APP (after login) ────────────────────────────────────
 function showApp(){
+  // ซ่อนหน้า login
+  var lp = document.getElementById('lp');
+  if(lp) lp.style.display='none';
+
   document.getElementById('app').style.display='block';
   document.getElementById('logoutBtn').style.display='';
   document.getElementById('uav').textContent=(CU.avatar&&CU.avatar.length===1)?CU.avatar:(CU.name||'U').charAt(0);
