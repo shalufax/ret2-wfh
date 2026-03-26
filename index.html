@@ -3194,24 +3194,30 @@ async function doLineLogin(){
   try {
     var r = await gas('getLineLoginUrl');
     if(!r || !r.url){ toast('❌','ไม่สามารถเชื่อมต่อ LINE ได้','err'); resetLineBtn(); return; }
-    // เปิด tab ใหม่ไป LINE OAuth
-    var w = window.open(r.url, '_blank');
-    if(!w){ toast('⚠️','กรุณาอนุญาต popup แล้วลองใหม่','wrn'); resetLineBtn(); return; }
-    // Poll URL ของ tab ใหม่
-    var poll = setInterval(function(){
-      try {
-        var u = w.location.href;
-        if(u && u.indexOf('lrk=') > -1){
-          clearInterval(poll);
-          var m = u.match(/[?&]lrk=([^&]+)/);
-          var key = m ? m[1] : '';
-          w.close();
-          if(key) fetchLineResult(key);
-          else { toast('❌','ไม่พบ key','err'); resetLineBtn(); }
-        }
-      } catch(e){ /* cross-origin รอต่อ */ }
-      if(!w || w.closed){ clearInterval(poll); resetLineBtn(); }
-    }, 800);
+
+    // ลบ result เก่าออกก่อน
+    localStorage.removeItem('line_auth_result');
+
+    // เปิด tab ใหม่ไป LINE
+    var popup = window.open(r.url, '_blank');
+    if(!popup){ toast('⚠️','กรุณาอนุญาต popup','wrn'); resetLineBtn(); return; }
+
+    // Poll localStorage รอ result จาก tab ที่ 2
+    var maxWait = 300; // 5 นาที
+    var waited  = 0;
+    var poller  = setInterval(function(){
+      waited++;
+      if(waited > maxWait){ clearInterval(poller); resetLineBtn(); return; }
+      var raw = localStorage.getItem('line_auth_result');
+      if(raw){
+        clearInterval(poller);
+        localStorage.removeItem('line_auth_result');
+        try {
+          var result = JSON.parse(raw);
+          processLineResult(result);
+        } catch(e){ toast('❌','ข้อมูลไม่ถูกต้อง','err'); resetLineBtn(); }
+      }
+    }, 1000);
   } catch(e){ toast('❌',e.message,'err'); resetLineBtn(); }
 }
 
@@ -3262,41 +3268,41 @@ function showPendingScreen(name, picture){
 
 function checkLineRedirect(){
   var params = new URLSearchParams(window.location.search);
-
-  // รับ LINE OAuth code โดยตรง (LINE redirect มาที่ GitHub Pages)
   var code  = params.get('code');
   var error = params.get('error');
-  var lrk   = params.get('lrk') || params.get('line_key');
 
   if(error){
     history.replaceState({}, '', window.location.pathname);
-    toast('❌','LINE Error: '+error,'err');
+    // เขียน error ลง localStorage ให้ tab หลักรับ
+    localStorage.setItem('line_auth_result', JSON.stringify({success:false, error:'LINE error: '+error}));
+    // ถ้าเป็น tab ที่ 2 ให้ปิดตัวเอง
+    if(window.opener || window.history.length <= 2){ window.close(); }
     return;
   }
 
   if(code){
     history.replaceState({}, '', window.location.pathname);
     showLoading('กำลังยืนยันตัวตน...');
-    // ส่ง code ไปให้ GAS แลกเป็น token และ profile
     gas('handleLineCode', code).then(function(r){
       hideLoading();
-      var payload = (r && r.payload) ? r.payload : r;
-      processLineResult(payload);
+      var result = (r && r.payload) ? r.payload : r;
+      // เขียนผลลัพธ์ลง localStorage ให้ tab หลักรับ
+      localStorage.setItem('line_auth_result', JSON.stringify(result));
+      // ถ้าเป็น tab ที่ 2 ให้ปิดตัวเอง
+      setTimeout(function(){
+        if(window.history.length <= 2 || document.referrer){
+          window.close();
+        } else {
+          // ถ้าปิดไม่ได้ (tab หลัก) ให้ process เลย
+          localStorage.removeItem('line_auth_result');
+          processLineResult(result);
+        }
+      }, 500);
     }).catch(function(e){
       hideLoading();
-      toast('❌', e.message, 'err');
+      localStorage.setItem('line_auth_result', JSON.stringify({success:false, error:e.message}));
+      setTimeout(function(){ window.close(); }, 500);
     });
-    return;
-  }
-
-  if(lrk){
-    history.replaceState({}, '', window.location.pathname);
-    showLoading('กำลังยืนยันตัวตน...');
-    gas('getLineResult', lrk).then(function(r){
-      hideLoading();
-      var payload = (r && r.payload) ? r.payload : r;
-      processLineResult(payload);
-    }).catch(function(e){ hideLoading(); toast('❌',e.message,'err'); });
   }
 }
 
